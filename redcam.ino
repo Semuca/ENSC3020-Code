@@ -44,7 +44,7 @@ static camera_config_t camera_config = {
   .pixel_format = PIXFORMAT_RGB565,
   .frame_size = FRAMESIZE_QVGA,
 
-  .jpeg_quality = 1,
+  .jpeg_quality = 60,
   .fb_count = 1,
   .fb_location = CAMERA_FB_IN_PSRAM,
   .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
@@ -56,8 +56,7 @@ void setup() {
   Serial.begin(115200);
   // put your setup code here, to run once:
   esp_err_t err = esp_camera_init(&camera_config);
-  camera_fb_t *pic = esp_camera_fb_get();
-  esp_camera_fb_return(pic);
+  esp_camera_return_all();
 
   columns = (char*)calloc(320, sizeof(uint8_t));
 
@@ -69,7 +68,7 @@ void loop() {
   
   camera_fb_t *pic = esp_camera_fb_get();
 
-  for (int i = 0; i < 320; i++) {
+  for (int i = 0; i < pic->width; i++) {
     columns[i] = 0;
   }
 
@@ -78,9 +77,9 @@ void loop() {
       int pos = i * pic->width + 2 * j;
       int redVal = (pic->buf[pos] & 248) >> 3; // 1111 1000 = 128 + 64 + 32 + 16 + 8 = 248
       int greenVal = ((pic->buf[pos] & 7) << 3) + ((pic->buf[pos + 1] & 224) >> 5);
-      int blueVal = (pic->buf[pos] & 31);
+      int blueVal = (pic->buf[pos + 1] & 31);
       
-      if(redVal > 160) {
+      if(redVal > 10 && greenVal < 30 && blueVal < 20) {
         columns[j]++;
       }
     }
@@ -88,11 +87,11 @@ void loop() {
 
   char m = 0;
 
-  for (int i = 0; i < 320; i++) {
-    m = max(columns[m], columns[i]);
+  for (int i = 0; i < pic->width; i++) {
+    if (columns[i] > columns[m]) {
+      m = i;
+    }
   }
-
-  //Serial.println((int)m);
   analogWrite(14, (int)m);
 
   esp_camera_fb_return(pic);
