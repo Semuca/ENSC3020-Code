@@ -7,6 +7,7 @@
 #define MAX_RECURSION_DEPTH 13
 
 #include "esp32cam.h"
+#include "analogWrite.h"
 #include "esp32cam/JpegDecoder.h"
 #include "esp32cam/apps/ColorBlobDetector.h"
 
@@ -21,6 +22,8 @@ void setup() {
     Serial.begin(115200);
     delay(3000);
     Serial.println("Init");
+
+    pinMode(14, OUTPUT);
 
     cam.aithinker();
     cam.highQuality();
@@ -83,7 +86,7 @@ void loop() {
         int xLocation = (detector.blob.left + detector.blob.right) / 2;
         Serial.print("x location: ");
         Serial.println(xLocation);
-        int analogScale = xLocation / 80 * 255;
+        int analogScale = ((float) xLocation / 80) * 255;
         Serial.print("Analog Scale: ");
         Serial.println(analogScale);
         //analogWrite(14, (int) analogScale);
