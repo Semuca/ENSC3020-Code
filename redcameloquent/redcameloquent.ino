@@ -11,17 +11,55 @@
 #include "esp32cam/JpegDecoder.h"
 #include "esp32cam/apps/ColorBlobDetector.h"
 
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+const char* ssid = "Fold";
+const char* password = "vrte5372";
+
+AsyncWebServer server(80);
+
+AsyncWebSocket ws("/ws");
+
+void initWebSocket() {
+  server.addHandler(&ws);
+}
+
 using namespace Eloquent::Esp32cam;
 
 Cam cam;
 JpegDecoder decoder;
 Applications::ColorBlobDetector detector(200, 75, 80);
 
+int analogScale;
 
 void setup() {
     Serial.begin(115200);
     delay(3000);
     Serial.println("Init");
+
+    // Connect to Wi_Fi network with SSID and password
+    Serial.print("Setting AP (Access Point)...");
+    // Remove the password parameter, if you want the AP (Access Point) to be open
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(ssid, password);
+    
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
+
+    // Send a GET request to <ESP_IP>/slider?value=<inputMessage>
+    server.on("/cam", HTTP_GET, [](AsyncWebServerRequest *request){
+      char buf[10];
+      sprintf(buf, "%i", analogScale);
+      request->send_P(200, "text/plain", buf);
+    });
+  
+    server.begin();
+    initWebSocket();
+  
+    //ws.textAll(analogScale);
 
     pinMode(14, OUTPUT);
 
@@ -86,7 +124,7 @@ void loop() {
         int xLocation = (detector.blob.left + detector.blob.right) / 2;
         Serial.print("x location: ");
         Serial.println(xLocation);
-        int analogScale = ((float) xLocation / 80) * 255;
+        analogScale = ((float) xLocation / 80) * 255;
         Serial.print("Analog Scale: ");
         Serial.println(analogScale);
         //analogWrite(14, (int) analogScale);
