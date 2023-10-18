@@ -242,7 +242,7 @@ void loop() {
 //          velocity =  ((x - 145)/110)*75 + 180;
           
           analogWrite(enA, velocity);
-          analogWrite(enB, 0);
+          analogWrite(enB, velocity_off);
           motor1backward();
           Serial.println("right----");
           Serial.println(velocity);
