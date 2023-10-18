@@ -1,6 +1,27 @@
 #include <analogWrite.h>
 #include <Wire.h>
 
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <esp_now.h>
+
+//const char* ssid = "Fold";
+//const char* password = "vrte5372";
+//
+//const char* camServer = "http://192.168.4.1/cam";
+//
+//unsigned long previousMillis = 0;
+//const long interval = 200; 
+//
+//String camVal;
+
+typedef struct struct_message {
+    int a;
+} struct_message;
+
+// Create a struct_message called myData
+struct_message myData;
+
 //motor A connections
 int enA = 12;
 int in1 = 27; 
@@ -19,6 +40,19 @@ int distance;
 
 int x; 
 int y;
+
+
+// callback function that will be executed when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&myData, incomingData, sizeof(myData));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  Serial.print("Cam Data: ");
+  Serial.println(myData.a);
+  x = myData.a;
+  Serial.print("_____________________________________________________________");
+}
+
 void setup() {
   // Set all the motor control pins to outputs
   pinMode(enA, OUTPUT);
@@ -28,6 +62,17 @@ void setup() {
   pinMode(in3, OUTPUT);
   pinMode(in4, OUTPUT);
   pinMode(cam, INPUT);
+
+//  WiFi.begin(ssid, password);
+//  Serial.print("Connecting");
+//  while(WiFi.status() != WL_CONNECTED) { 
+//    delay(500);
+//    Serial.print(".");
+//  }
+//  Serial.print("");
+//  Serial.print("Connected to WiFi network with IP Address: ");
+//  Serial.print(WiFi.localIP());
+//  
   // Turn off motors - Initial state
   Wire.begin();
   Serial.begin(115200);         // set up Serial library at 9600 bps
@@ -35,6 +80,19 @@ void setup() {
 
   //AFMS.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
+
+
+  WiFi.mode(WIFI_STA);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  
+  // Once ESPNow is successfully Init, we will register for recv CB to
+  // get recv packer info
+  esp_now_register_recv_cb(OnDataRecv);
   
   // Set the speed to start, from 0 (off) to 255 (max speed)
   pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
@@ -44,6 +102,30 @@ void setup() {
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW);
 }
+
+//String httpGETRequest(const char* serverName) {
+//  WiFiClient client;
+//  HTTPClient http;
+//    
+//  http.begin(client, serverName);
+//  
+//  int httpResponseCode = http.GET();
+//  
+//  String payload = "--"; 
+//  
+//  if (httpResponseCode>0) {
+//    Serial.print("HTTP Response code: ");
+//    Serial.print(httpResponseCode);
+//    payload = http.getString();
+//  }
+//  else {
+//    Serial.print("Error code: ");
+//    Serial.print(httpResponseCode);
+//  }
+//  http.end();
+//
+//  return payload;
+//}
 
 void dist()
 {
@@ -103,51 +185,72 @@ void loop() {
 //  analogWrite(enA, 255);
 //  digitalWrite(in1, HIGH);
 //  digitalWrite(in2, LOW);
-   dist();
-           x = analogRead(cam);
-           Serial.print("The X-Value is:    ");
-           Serial.println(x);
-   //Serial.print("The distance is:    ");
-   //Serial.println(distance);
+  dist(); 
+//  unsigned long currentMillis = millis();
+//  if(currentMillis - previousMillis >= interval) {
+//  // Check WiFi connection status
+//  if(WiFi.status()== WL_CONNECTED ){
+//    camVal = httpGETRequest(camServer);
+//    x = camVal.toInt();
+//    previousMillis = currentMillis;
+//  }
+//  else {
+//    Serial.print("WiFi Disconnected");
+//  }
+           
+  Serial.print("The X-Value is:    ");
+  Serial.println(x);
+//  Serial.print("The distance is:    ");
+//  Serial.println(distance);
   if(distance < 10 ){
     
     stop_motor2();
     stop_motor1();
     }
     else{
-        analogWrite(enB, 255);   // see what is the lowest value we can set the motor to to keep it turning
-        digitalWrite(in3, HIGH);
-        digitalWrite(in4, LOW);
-        analogWrite(enA, 255);
-        digitalWrite(in1, HIGH);
-        digitalWrite(in2, LOW);
 
-//    if(  x < 120)
-//  {
-//    velocity = ((135 - x)/135)*255
-//      if (velocity < 60) {velocity = 60;} // set this to that lowest value 60 is just a place holder
-//    
-//    analogWrite(enA, velocity);
-//    analogWrite(enB, velocity);
-//    motor2forward();
-//    motor1forward();
-//    
-//    }
-//    else if(x > 135)
-//    {
-//      velocity =  abs((x - 135)/135)*255;
-//      if (velocity < 60) {velocity = 60;} // set this to that lowest value 60 is just a place holder
-//      analogWrite(enA, velocity);
-//      analogWrite(enB, velocity);
-//      motor1backward();
-//      motor2backward();
-//      }
-//      else
-//      {
-//      motor1backward();
-//      motor2forward();
-//
+      int i = 0;
+
+//      while (i < 256 ){
+//        analogWrite(enB, i);   // see what is the lowest value we can set the motor to to keep it turning
+//        digitalWrite(in3, HIGH);
+//        digitalWrite(in4, LOW);
+//        analogWrite(enA, i);
+//        digitalWrite(in1, HIGH);
+//        digitalWrite(in2, LOW);
+//        Serial.print(" speed is: ");
+//        Serial.println(i);
+//        delay(250);
+//        i++;
 //        }
+      if(  x < 110)
+        {
+        velocity = ((x - 110)/110)*75 + 180;
+          
+        
+        analogWrite(enA, velocity);
+        analogWrite(enB, velocity);
+        motor2forward();
+        motor1forward();
+        
+        }
+        else if(x > 145)
+        {
+          velocity =  ((x - 145)/110)*75 + 180;
+          
+          analogWrite(enA, velocity);
+          analogWrite(enB, velocity);
+          motor1backward();
+          motor2backward();
+          }
+          else
+          {
+          analogWrite(enA, velocity);
+          analogWrite(enB, velocity);
+          motor1backward();
+          motor2forward();
+    
+            }
     }
 }
   

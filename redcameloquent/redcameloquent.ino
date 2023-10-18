@@ -15,15 +15,21 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-const char* ssid = "Fold";
-const char* password = "vrte5372";
+#include <esp_now.h>
 
-AsyncWebServer server(80);
+uint8_t broadcastAddress[] = {0xC8, 0xC9, 0xA3, 0xFC, 0x8A, 0x4C};
 
-AsyncWebSocket ws("/ws");
+typedef struct struct_message {
+  int a;
+} struct_message;
 
-void initWebSocket() {
-  server.addHandler(&ws);
+struct_message myData;
+
+esp_now_peer_info_t peerInfo;
+
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
 using namespace Eloquent::Esp32cam;
@@ -36,28 +42,50 @@ int analogScale;
 
 void setup() {
     Serial.begin(115200);
-    delay(3000);
+    WiFi.mode(WIFI_STA);
+
+    // Init ESP-NOW
+    if (esp_now_init() != ESP_OK) {
+      Serial.println("Error initializing ESP-NOW");
+      return;
+    }
+  
+    // Once ESPNow is successfully Init, we will register for Send CB to
+    // get the status of Trasnmitted packet
+    esp_now_register_send_cb(OnDataSent);
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+      Serial.println("Failed to add peer");
+      return;
+    }
+
     Serial.println("Init");
 
     // Connect to Wi_Fi network with SSID and password
     Serial.print("Setting AP (Access Point)...");
     // Remove the password parameter, if you want the AP (Access Point) to be open
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(ssid, password);
-    
-    IPAddress IP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(IP);
-
-    // Send a GET request to <ESP_IP>/slider?value=<inputMessage>
-    server.on("/cam", HTTP_GET, [](AsyncWebServerRequest *request){
-      char buf[10];
-      sprintf(buf, "%i", analogScale);
-      request->send_P(200, "text/plain", buf);
-    });
-  
-    server.begin();
-    initWebSocket();
+//    WiFi.mode(WIFI_AP);
+//    WiFi.softAP(ssid, password);
+//    
+//    IPAddress IP = WiFi.softAPIP();
+//    Serial.print("AP IP address: ");
+//    Serial.println(IP);
+//
+//    // Send a GET request to <ESP_IP>/slider?value=<inputMessage>
+//    server.on("/cam", HTTP_GET, [](AsyncWebServerRequest *request){
+//      char buf[10];
+//      sprintf(buf, "%i", analogScale);
+//      request->send_P(200, "text/plain", buf);
+//    });
+//  
+//    server.begin();
+//    initWebSocket();
   
     //ws.textAll(analogScale);
 
@@ -127,6 +155,18 @@ void loop() {
         analogScale = ((float) xLocation / 80) * 255;
         Serial.print("Analog Scale: ");
         Serial.println(analogScale);
+
+        myData.a = analogScale;
+
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
+           
+        if (result == ESP_OK) {
+          Serial.println("Sent with success");
+        }
+        else {
+          Serial.println("Error sending the data");
+        }
+        
         //analogWrite(14, (int) analogScale);
     }
     else {
